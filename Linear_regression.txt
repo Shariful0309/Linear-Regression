@@ -1,0 +1,91 @@
+!pip install pyspark py4j
+
+import pyspark
+
+from pyspark.sql import SparkSession
+
+spark = SparkSession.builder.appName("Linear Regression").getOrCreate()
+
+spark
+
+from pyspark.ml.stat import Correlation
+import pyspark.sql.functions as F
+
+from google.colab import drive
+drive.mount('/content/drive')
+
+df = spark.read.load("/content/drive/MyDrive/Big_data_practice/car data.csv" , format = "csv", sep = ",", inferSchema = True, header = True)
+
+df.show()
+
+df.printSchema()
+
+df = spark.read.csv("/content/drive/MyDrive/Big_data_practice/car data.csv" , inferSchema = True, header = True)
+
+df.show()
+
+df.printSchema()
+
+df.describe().show()
+
+df.head()
+
+df.show()
+
+df.corr("Present_Price", "Selling_Price")
+
+df.corr("Present_Price","Year")
+
+from pyspark.ml.feature import StringIndexer
+
+indexer = StringIndexer(inputCol = "Car_Name", outputCol = "Car_Name_cat")
+indexed = indexer.fit(df).transform(df)
+
+indexer = StringIndexer(inputCol = "Fuel_Type", outputCol = "Fuel_Type_cat")
+indexed = indexer.fit(indexed).transform(indexed)
+
+indexer = StringIndexer(inputCol = "Seller_Type", outputCol = "Seller_Type_cat")
+indexed = indexer.fit(indexed).transform(indexed)
+
+indexer = StringIndexer(inputCol = "Transmission", outputCol = "Transmission_cat")
+indexed = indexer.fit(indexed).transform(indexed)
+
+indexed.show()
+
+indexed.corr("Present_Price", "Car_Name_cat")
+
+from pyspark.ml.linalg import Vector
+from pyspark.ml.feature import VectorAssembler
+
+assembler = VectorAssembler(inputCols= ['Year','Selling_Price','Kms_Driven','Owner','Car_Name_cat','Fuel_Type_cat','Seller_Type_cat','Transmission_cat'], outputCol= 'features')
+
+
+
+output = assembler.transform(indexed)
+
+output.show(truncate = False)
+
+final_data = output.select('features', 'Present_Price')
+
+final_data.show(truncate = False)
+
+train_data, test_data = final_data.randomSplit([0.7, 0.3])
+
+train_data.count()
+
+test_data.count()
+
+from pyspark.ml.regression import LinearRegression
+
+lr = LinearRegression(featuresCol = "features", labelCol = "Present_Price")
+
+trained_model = lr.fit(train_data)
+
+results = trained_model.evaluate(train_data)
+
+print(results.r2)
+
+predictions = trained_model.transform(test_data)
+
+predictions.show()
+
